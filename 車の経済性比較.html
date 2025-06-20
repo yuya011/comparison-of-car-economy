@@ -22,7 +22,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: transparent; 
+            background-color: transparent; /* 背景色を透明に変更 */
             display: flex;
             justify-content: center;
             align-items: flex-start;
@@ -30,11 +30,11 @@
             padding: 20px;
         }
         .container {
-            background-color: transparent; 
-            padding: 0; 
-            border-radius: 0; 
-            box-shadow: none; 
-            max-width: none; 
+            background-color: transparent; /* 背景色を透明に変更 */
+            padding: 0; /* パディングを削除 */
+            border-radius: 0; /* 角丸を削除 */
+            box-shadow: none; /* ボックスシャドウを削除 */
+            max-width: none; /* 最大幅の制限を解除 */
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -334,30 +334,56 @@
 
         /**
          * e-Stat APIから最新のガソリン価格を取得し、入力フィールドに設定する関数。
-         * コード内で直接指定された完全なAPI URLを使用し、CORSプロキシを経由します。
+         * 動的にURLを構築し、CORSプロキシを経由します。
          */
         async function fetchGasPricesFromAPI() {
-            // !!! ここにe-Statで取得したご自身の「appidを含んだ完全なAPI URL」を、シングルクォート''の中に記述してください。 !!!
-            // ※ プロトコルは必ず 'https://' にしてください。
-            const originalApiUrl = ''; 
+            // e-Stat APIのベースURLテンプレート (cdTimeはプレースホルダー)
+            // プロトコルは必ず HTTPS にしてください。
+            // appIdやstatsDataIdなど、cdTime以外のパラメータは全てここに含まれている必要があります。
+            const baseUrlTemplate = 'https://api.e-stat.go.jp/rest/3.0/app/getSimpleStatsData?cdTab=10&cdCat02=07301&cdTime={CD_TIME_PLACEHOLDER}&cdArea=14100&appId=##############################&lang=J&statsDataId=0003421913&metaGetFlg=Y&cntGetFlg=N&explanationGetFlg=Y&annotationGetFlg=Y&sectionHeaderFlg=1&replaceSpChars=0'; 
             
             const apiStatusMessageElement = document.getElementById('apiStatusMessage');
 
-            // API URLが設定されていないか、デフォルトのプレースホルダーのままかを確認
-            if (originalApiUrl === 'YOUR_FULL_E_STAT_API_URL_HERE' || originalApiUrl.trim() === '') {
-                apiStatusMessageElement.textContent = 'エラー: e-Stat API URLがコード内で正しく設定されていません。`fetchGasPricesFromAPI`関数内の`originalApiUrl`変数を編集してください。';
+            // API URLテンプレートの確認 (簡易的なチェック)
+            if (!baseUrlTemplate.includes('{CD_TIME_PLACEHOLDER}') || !baseUrlTemplate.includes('appId=')) {
+                apiStatusMessageElement.textContent = 'エラー: API URLテンプレートが正しく設定されていません。`cdTime`のプレースホルダーと`appId`が含まれているか確認してください。';
                 apiStatusMessageElement.style.color = '#ef4444';
                 apiStatusMessageElement.classList.remove('hidden');
                 return;
             }
 
+            // API更新日（毎月21日）を考慮した年月を計算
+            const today = new Date();
+            let targetDate = new Date(); // 基準日として使用
+            const currentDay = today.getDate(); // 今日の日付
+
+            if (currentDay < 21) {
+                // 今日が21日より前なら、前々月のデータを取得
+                // 例: 6/15 の場合、4月のデータを取得 (現在月-2)
+                targetDate.setMonth(today.getMonth() - 2); 
+            } else {
+                // 今日が21日以降なら、前月のデータを取得
+                // 例: 6/25 の場合、5月のデータを取得 (現在月-1)
+                targetDate.setMonth(today.getMonth() - 1);
+            }
+
+            const targetYear = targetDate.getFullYear();
+            const targetMonth = targetDate.getMonth() + 1; // getMonth()は0から始まるため+1
+            
+            // cdTimeの形式は "YYYY00MMNN" (例: 2025000505)
+            // NNの部分はAPIによって異なるが、提供されたURLの例では '05'
+            const cdTime = `${targetYear}00${targetMonth.toString().padStart(2, '0')}05`; 
+
+            // 最終的なAPI URLを構築
+            const originalApiUrl = baseUrlTemplate.replace('{CD_TIME_PLACEHOLDER}', cdTime);
+            
             // CORSエラーを回避するために、CORSプロキシサービスを利用
-            // https://corsproxy.io/ は比較的安定しており、HTTPS to HTTPS に対応
             const proxyUrlPrefix = 'https://corsproxy.io/?'; 
             const apiUrl = proxyUrlPrefix + originalApiUrl;
 
             // デバッグ用: 実際に使用されるAPI URL (プロキシ経由) をコンソールに出力
             console.log('Using API URL (via proxy):', apiUrl);
+            console.log('Original API URL (with dynamic cdTime):', originalApiUrl);
 
             // URLオブジェクトを使用してcdCat02 (品目コード) を抽出
             let gasItemCodeFromUrl = '';
@@ -368,13 +394,13 @@
                 console.log('Extracted cdCat02 from original URL:', gasItemCodeFromUrl);
 
                 if (!gasItemCodeFromUrl) {
-                    apiStatusMessageElement.textContent = 'エラー: 指定されたオリジナルURLに`cdCat02`パラメータが見つかりません。ガソリンの品目コード（例: `cdCat02=07301`）が含まれている完全なURLを記述してください。';
+                    apiStatusMessageElement.textContent = 'エラー: 構築されたURLに`cdCat02`パラメータが見つかりません。テンプレートURLに`cdCat02`が含まれているか確認してください。';
                     apiStatusMessageElement.style.color = '#ef4444';
                     apiStatusMessageElement.classList.remove('hidden');
                     return;
                 }
             } catch (e) {
-                apiStatusMessageElement.textContent = `エラー: 不正なオリジナルURL形式です: ${e.message}。正しいe-Stat API URLを記述してください。`;
+                apiStatusMessageElement.textContent = `エラー: 不正なURL形式です: ${e.message}。内部のURL構築ロジックを確認してください。`;
                 apiStatusMessageElement.style.color = '#ef4444';
                 apiStatusMessageElement.classList.remove('hidden');
                 return;
@@ -387,27 +413,49 @@
             try {
                 const response = await fetch(apiUrl);
                 if (!response.ok) {
-                    throw new Error(`HTTPエラー! ステータス: ${response.status} (${response.statusText})`);
+                    let errorMsg = `HTTPエラー! ステータス: ${response.status}`;
+                    if (response.statusText) {
+                        errorMsg += ` (${response.statusText})`;
+                    }
+                    if (response.status === 400) {
+                        errorMsg += ' - リクエストパラメータが不正な可能性があります。URLを確認してください。';
+                    } else if (response.status === 403) {
+                        errorMsg += ' - APIキーが無効か、アクセスが拒否されました。APIキーを確認してください。';
+                    } else if (response.status === 404) {
+                        errorMsg += ' - データが見つかりません。期間や地域が間違っている可能性があります。';
+                    }
+                    throw new Error(errorMsg);
                 }
-                // response.json() の前に response.text() を呼び出して生データを取得
-                const rawText = await response.text();
+                
+                const rawText = await response.text(); // 生のテキストデータを取得
                 console.log('Raw API response text:', rawText); // 生データをコンソールに出力
 
-                let data;
+                let parsedEstatData;
                 try {
-                    // API応答がCSVのような形式であることを前提にパース
-                    data = parseEStatCustomFormat(rawText);
-                    console.log('Parsed E-Stat Custom Data:', data);
-                    // ここで、後続の処理のために期待するJSON構造にラップする
-                    data = {
-                        GET_STATS_DATA: {
-                            STATISTICAL_DATA: {
-                                DATA_INF: {
-                                    VALUE: data.VALUE // parseEStatCustomFormatからのVALUE配列を直接使用
-                                }
-                            }
+                    // API応答がカスタム形式であることを前提にパース
+                    parsedEstatData = parseEStatCustomFormat(rawText);
+                    console.log('Parsed E-Stat Custom Data:', parsedEstatData);
+                    
+                    // APIのRESULT.STATUSを確認
+                    // parseEStatCustomFormatはメタ情報をresult.metaに格納する
+                    if (parsedEstatData.meta.STATUS !== '0') { // STATUSは文字列 '0' で成功
+                        const apiErrorMsg = parsedEstatData.meta.ERROR_MSG || 'APIからエラーメッセージがありません。';
+                        // TOTAL_NUMBERが0の場合もここで特別に処理
+                        if (parsedEstatData.meta.TOTAL_NUMBER === '0') {
+                            apiStatusMessageElement.textContent = `情報: 指定された条件のガソリン価格データが見つかりませんでした。${targetYear}年${targetMonth}月データはまだ公開されていない可能性があります。手動で入力するか、別の年月をお試しください。`;
+                            apiStatusMessageElement.style.color = '#f59e0b'; // Tailwindのamber-500
+                            return;
                         }
-                    };
+                        throw new Error(`e-Stat APIからエラー応答: ${apiErrorMsg}`);
+                    }
+
+                    // データが存在しない場合 (TOTAL_NUMBER が 0 の場合など)
+                    // STATUSが0でもTOTAL_NUMBERが0のケースも考慮
+                    if (!parsedEstatData.VALUE || parsedEstatData.VALUE.length === 0 || parsedEstatData.meta.TOTAL_NUMBER === '0') {
+                        apiStatusMessageElement.textContent = `情報: 指定された条件のガソリン価格データが見つかりませんでした。${targetYear}年${targetMonth}月データはまだ公開されていない可能性があります。手動で入力するか、別の年月をお試しください。`;
+                        apiStatusMessageElement.style.color = '#f59e0b'; // Tailwindのamber-500
+                        return;
+                    }
 
                 } catch (parseError) {
                     apiStatusMessageElement.textContent = `エラー: API応答のカスタムパースに失敗しました: ${parseError.message}。生データをコンソールで確認してください。`;
@@ -416,35 +464,15 @@
                     return;
                 }
 
-                // !!! デバッグ用: APIからのパース済み応答データをコンソールに出力 !!!
-                console.log('Parsed API response data (simulated JSON):', data);
-
-
-                // 段階的にデータ構造をチェックし、具体的なエラーメッセージを表示
-                if (!data || !data.GET_STATS_DATA || !data.GET_STATS_DATA.STATISTICAL_DATA || !data.GET_STATS_DATA.STATISTICAL_DATA.DATA_INF || !data.GET_STATS_DATA.STATISTICAL_DATA.DATA_INF.VALUE) {
-                    apiStatusMessageElement.textContent = 'エラー: API応答の構造が期待と異なります。手動で入力してください。';
-                    apiStatusMessageElement.style.color = '#ef4444';
-                    return;
-                }
-
-                const values = data.GET_STATS_DATA.STATISTICAL_DATA.DATA_INF.VALUE;
-                // デバッグ用: VALUE配列の内容をコンソールに出力
+                const values = parsedEstatData.VALUE; // カスタムパース関数からのVALUE配列
                 console.log('VALUE array:', values);
 
-                if (values.length === 0) {
-                    apiStatusMessageElement.textContent = 'エラー: 指定された条件のガソリン価格データがプロキシから返されませんでした。URLの年月、地域、品目コードを確認してください。';
-                    apiStatusMessageElement.style.color = '#ef4444';
-                    return;
-                }
+                let regularPrice = null; 
+                let dataTimeCode = ''; 
 
-                let regularPrice = null; // 取得したレギュラーガソリン価格を格納する変数
-                let dataTimeCode = ''; // データの時間コードを保持する変数
-
-                // 提供されたAPI応答の形式に合わせてキーを修正
                 for (const item of values) {
-                    // 'cat02_code'（API応答の銘柄コード）とURLから取得したcdCat02、および単位が「円」であることを確認
-                    // デバッグ用: 各アイテムの内容をコンソールに出力
-                    console.log('Processing item:', item);
+                    console.log('Processing item:', item); // 各アイテムのデバッグログ
+                    // API応答の`cat02_code`とURLから取得した`gasItemCodeFromUrl`、および`unit`が「円」であることを確認
                     if (item['cat02_code'] === gasItemCodeFromUrl && item['unit'] === '円') { 
                         regularPrice = parseFloat(item['value']); 
                         dataTimeCode = item['time_code']; 
@@ -462,10 +490,8 @@
                     document.getElementById('gasPriceDiesel').value = dieselPrice;
 
                     // 'time_code' 形式 "YYYY00MMNN" から年月を抽出
-                    // 例: "2025000505" の場合、"2025年5月" を抽出
                     const displayYear = dataTimeCode.substring(0, 4);
-                    // ここを修正: time_codeの月の位置が7番目（インデックス6）から始まるため
-                    const displayMonth = parseInt(dataTimeCode.substring(6, 8)); 
+                    const displayMonth = parseInt(dataTimeCode.substring(6, 8)); // YYYY00MMNN形式からMMを抽出 (インデックス6から2文字)
 
                     apiStatusMessageElement.textContent = `ガソリン価格を更新しました (${displayYear}年${displayMonth}月データ)`;
                     apiStatusMessageElement.style.color = '#10b981'; 
@@ -478,36 +504,25 @@
 
             } catch (error) {
                 console.error('e-Stat APIの取得中にエラーが発生しました:', error);
-                apiStatusMessageElement.textContent = `ガソリン価格の取得中に予期せぬエラーが発生しました: ${error.message}。プロキシサービスまたはURLが正しい形式か確認してください。`;
+                apiStatusMessageElement.textContent = `ガソリン価格の取得中に予期せぬエラーが発生しました: ${error.message}。手動で入力してください。`;
                 apiStatusMessageElement.style.color = '#ef4444';
             }
         }
 
         /**
          * カスタムE-Stat API応答形式（CSVライク）をパースする関数
+         * この関数は、e-StatのgetSimpleStatsDataエンドポイントが返すカスタムテキスト形式を処理します。
          * @param {string} rawText - APIから返された生のテキストデータ
-         * @returns {object} パースされたデータオブジェクト（VALUE配列を含む）
+         * @returns {object} パースされたデータオブジェクト（meta情報とVALUE配列を含む）
          */
         function parseEStatCustomFormat(rawText) {
             const lines = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            const result = {
+                meta: {}, // RESULT, RESULT_INFなどのメタ情報を格納
+                VALUE: [] // VALUEセクションのデータを格納
+            };
 
-            let valueSectionStartIndex = -1;
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i] === '"VALUE"') {
-                    valueSectionStartIndex = i;
-                    break;
-                }
-            }
-
-            if (valueSectionStartIndex === -1 || lines.length <= valueSectionStartIndex + 2) {
-                throw new Error('データセクション「VALUE」が見つからないか、不完全です。');
-            }
-
-            // ヘッダー行とデータ行を抽出
-            const headerLine = lines[valueSectionStartIndex + 1];
-            const dataLines = lines.slice(valueSectionStartIndex + 2); // 複数のデータ行に対応するためsliceを使用
-
-            // CSVライクな行をパースするヘルパー関数
+            // CSVライクな行をパースするヘルパー関数 (引用符対応)
             const parseCsvLine = (line) => {
                 const result = [];
                 let inQuote = false;
@@ -527,25 +542,52 @@
                 return result.map(field => field.trim()); // 各フィールドのトリム
             };
 
-            const headers = parseCsvLine(headerLine);
-            const parsedDataArray = [];
-
-            // 各データ行をパース
-            for (const dataLine of dataLines) {
-                const values = parseCsvLine(dataLine);
-                if (headers.length !== values.length) {
-                    console.warn('警告: ヘッダーとデータフィールドの数が一致しない行があります。スキップします。', { headerLine, dataLine });
-                    continue;
-                }
-                const item = {};
-                for (let i = 0; i < headers.length; i++) {
-                    item[headers[i]] = values[i];
-                }
-                parsedDataArray.push(item);
-            }
+            let valueSectionStarted = false;
+            let headers = [];
             
-            // 呼び出し元が期待する VALUE 構造に合わせる
-            return { VALUE: parsedDataArray };
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                if (line === '"VALUE"') {
+                    valueSectionStarted = true;
+                    // VALUEマーカーの次の行がヘッダー行
+                    if (i + 1 < lines.length) {
+                        headers = parseCsvLine(lines[i + 1]);
+                        i++; // ヘッダー行をスキップ
+                    }
+                    continue; // "VALUE"行自体もスキップ
+                }
+
+                if (valueSectionStarted) {
+                    // VALUEセクション内のデータ行
+                    if (headers.length === 0) { // ヘッダーがないのにデータ行が来た場合
+                        console.warn("警告: ヘッダーがパースされていないのにデータ行が来ました。スキップします。", line);
+                        continue;
+                    }
+                    const values = parseCsvLine(line);
+                    if (headers.length !== values.length) {
+                        console.warn('警告: ヘッダーとデータフィールドの数が一致しない行があります。スキップします。', { headers, dataLine: line });
+                        continue;
+                    }
+                    const item = {};
+                    for (let j = 0; j < headers.length; j++) {
+                        item[headers[j]] = values[j];
+                    }
+                    result.VALUE.push(item);
+                } else {
+                    // VALUEセクション前のメタ情報
+                    // "KEY","VALUE" の形式をパース
+                    const parts = parseCsvLine(line);
+                    if (parts.length >= 2) {
+                        let key = parts[0].replace(/"/g, ''); // 引用符を削除してキーとして使用
+                        result.meta[key] = parts[1].replace(/"/g, ''); // 引用符を削除して値として使用
+                    } else if (parts.length === 1 && parts[0]) {
+                        // "RESULT" や "RESULT_INF" のような単独のキー（セクション名）
+                        result.meta[parts[0].replace(/"/g, '')] = true; // 存在を示す
+                    }
+                }
+            }
+            return result;
         }
 
 
