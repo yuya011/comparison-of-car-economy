@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>車の経済性比較</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        };
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: transparent; 
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: transparent; 
+            padding: 0; 
+            border-radius: 0; 
+            box-shadow: none; 
+            max-width: none; 
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .input-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-around;
+        }
+        .car-card {
+            flex: 1;
+            min-width: 300px;
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4b5563;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            color: #374151;
+            background-color: #ffffff;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input[type="number"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            color: #374151;
+            background-color: #ffffff;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+        }
+        button {
+            width: 100%; /* Default to 100% but overridden by max-w-sm and mx-auto for centering */
+            padding: 14px 20px;
+            background-color: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+        }
+        button:hover {
+            background-color: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 10px rgba(99, 102, 241, 0.2);
+        }
+        .results-section {
+            background-color: #f9fafb;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+        .results-section h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .numeric-results p {
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+            color: #374151;
+            line-height: 1.6;
+        }
+        .numeric-results p strong {
+            color: #1f2937;
+        }
+        .error-message {
+            color: #dc2626;
+            font-weight: 500;
+            margin-top: 10px;
+            text-align: center;
+        }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .input-section {
+                flex-direction: column;
+            }
+            .car-card {
+                min-width: unset;
+                width: 100%;
+            }
+            /* Adjust button width for smaller screens */
+            .calculate-button {
+                max-width: 100% !important; /* Ensure it takes full width on small screens */
+            }
+            .download-button {
+                max-width: 100% !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- H1タグは空のまま保持 -->
+        <h1 class="text-3xl font-extrabold text-center text-gray-900 mb-8"></h1>
+
+        <!-- Common Input - Moved to top -->
+        <div class="car-card mx-auto max-w-lg w-full">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">共通情報</h2>
+            <div class="input-group">
+                <label for="gasPriceRegular">レギュラー (円/L)</label>
+                <input type="number" id="gasPriceRegular" value="160" min="0">
+            </div>
+            <div class="input-group">
+                <label for="gasPriceHighOctane">ハイオク (円/L)</label>
+                <input type="number" id="gasPriceHighOctane" value="170" min="0">
+            </div>
+            <div class="input-group">
+                <label for="gasPriceDiesel">ディーゼル (円/L)</label>
+                <input type="number" id="gasPriceDiesel" value="140" min="0">
+            </div>
+            <div class="input-group">
+                <label for="monthlyDistance">一月の走行距離 (Km)</label>
+                <input type="number" id="monthlyDistance" value="500" min="0">
+            </div>
+            <!-- API取得ボタンにIDを追加し、onclick属性を削除 -->
+            <button id="fetchGasPricesBtn" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50">
+                最新のガソリン価格を取得 (e-Stat API)
+            </button>
+            <!-- apiStatusMessageのスタイルを更新し、より目立つように変更 -->
+            <p id="apiStatusMessage" class="text-base font-bold my-4 text-center hidden"></p>
+        </div>
+
+        <div class="input-section">
+            <!-- Car 1 Input -->
+            <div class="car-card">
+                <div class="input-group">
+                    <label for="carName1">車両名</label>
+                    <input type="text" id="carName1" value="車1">
+                </div>
+                <div class="input-group">
+                    <label for="fuelType1">燃料の種類</label>
+                    <select id="fuelType1">
+                        <option value="regular">レギュラー</option>
+                        <option value="highOctane">ハイオク</option>
+                        <option value="diesel">ディーゼル</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="price1">車両購入価格 (万円)</label>
+                    <input type="number" id="price1" value="200" min="0">
+                </div>
+                <div class="input-group">
+                    <label for="fuelEfficiency1">燃費 (Km/L)</label>
+                    <input type="number" id="fuelEfficiency1" value="15" min="0.1" step="0.1">
+                </div>
+            </div>
+
+            <!-- Car 2 Input -->
+            <div class="car-card">
+                <div class="input-group">
+                    <label for="carName2">車両名</label>
+                    <input type="text" id="carName2" value="車2">
+                </div>
+                <div class="input-group">
+                    <label for="fuelType2">燃料の種類</label>
+                    <select id="fuelType2">
+                        <option value="regular">レギュラー</option>
+                        <option value="highOctane">ハイオク</option>
+                        <option value="diesel">ディーゼル</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="price2">車両購入価格 (万円)</label>
+                    <input type="number" id="price2" value="300" min="0">
+                </div>
+                <div class="input-group">
+                    <label for="fuelEfficiency2">燃費 (Km/L)</label>
+                    <input type="number" id="fuelEfficiency2" value="25" min="0.1" step="0.1">
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculate Button - Adjusted width -->
+        <button onclick="calculateComparison()" class="calculate-button max-w-sm mx-auto">比較する</button>
+        <p id="errorMessage" class="error-message hidden"></p>
+
+        <div class="results-section hidden" id="resultsSection">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">比較結果</h2>
+            <div class="numeric-results mb-8">
+                <p id="crossoverResult"></p>
+                <p id="car1Details"></p>
+                <p id="car2Details"></p>
+            </div>
+            <div class="chart-container" style="position: relative; height:400px; width:100%">
+                <canvas id="costChart"></canvas>
+            </div>
+            <button onclick="downloadChart()" class="download-button mt-6 max-w-sm mx-auto bg-green-500 hover:bg-green-600 focus:ring-green-500">
+                グラフをダウンロード (PNG)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let costChart; // Chart.js インスタンスを保持する変数
+
+        /**
+         * 数値の入力フィールドから値を取得し、検証する関数。
+         * @param {string} id - 入力フィールドのID。
+         * @param {string} name - フィールドの名前（エラーメッセージ用）。
+         * @param {boolean} allowZero - 0を許可するかどうか。
+         * @returns {number | null} - 取得した数値、またはエラーの場合はnull。
+         */
+        function getValidatedNumber(id, name, allowZero = false) {
+            const inputElement = document.getElementById(id);
+            const value = parseFloat(inputElement.value);
+
+            if (isNaN(value)) {
+                showError(`${name} が入力されていません。有効な数値を入力してください。`);
+                return null;
+            }
+            if (value < 0 || (!allowZero && value === 0)) {
+                showError(`${name} は0以上である必要があります。${allowZero ? '' : '0は許可されていません。'}`);
+                return null;
+            }
+            return value;
+        }
+
+        /**
+         * エラーメッセージを表示する関数。
+         * @param {string} message - 表示するエラーメッセージ。
+         */
+        function showError(message) {
+            const errorMessageElement = document.getElementById('errorMessage');
+            errorMessageElement.textContent = message;
+            errorMessageElement.classList.remove('hidden');
+            document.getElementById('resultsSection').classList.add('hidden'); // 結果セクションを非表示にする
+        }
+
+        /**
+         * エラーメッセージを非表示にする関数。
+         */
+        function hideError() {
+            document.getElementById('errorMessage').classList.add('hidden');
+        }
+
+        /**
+         * 燃料の種類に基づいて適切な燃料価格を返すヘルパー関数。
+         * @param {string} type - 燃料の種類 ('regular', 'highOctane', 'diesel')。
+         * @param {number} regularPrice - レギュラーガソリン価格。
+         * @param {number} highOctanePrice - ハイオクガソリン価格。
+         * @param {number} dieselPrice - ディーゼル燃料価格。
+         * @returns {number} - 選択された燃料の価格。
+         */
+        function getFuelCostForType(type, regularPrice, highOctanePrice, dieselPrice) {
+            switch (type) {
+                case 'regular':
+                    return regularPrice;
+                case 'highOctane':
+                    return highOctanePrice;
+                case 'diesel':
+                    return dieselPrice;
+                default:
+                    return 0; // Fallback, though validation should prevent this.
+            }
+        }
+
+        /**
+         * e-Stat APIから最新のガソリン価格を取得し、入力フィールドに設定する関数。
+         * コード内で直接指定された完全なAPI URLを使用し、CORSプロキシを経由します。
+         */
+        async function fetchGasPricesFromAPI() {
+            // !!! ここにe-Statで取得したご自身の「appidを含んだ完全なAPI URL」を、シングルクォート''の中に記述してください。 !!!
+            // ※ プロトコルは必ず 'https://' にしてください。
+            const originalApiUrl = ''; 
+            
+            const apiStatusMessageElement = document.getElementById('apiStatusMessage');
+
+            // API URLが設定されていないか、デフォルトのプレースホルダーのままかを確認
+            if (originalApiUrl === 'YOUR_FULL_E_STAT_API_URL_HERE' || originalApiUrl.trim() === '') {
+                apiStatusMessageElement.textContent = 'エラー: e-Stat API URLがコード内で正しく設定されていません。`fetchGasPricesFromAPI`関数内の`originalApiUrl`変数を編集してください。';
+                apiStatusMessageElement.style.color = '#ef4444';
+                apiStatusMessageElement.classList.remove('hidden');
+                return;
+            }
+
+            // CORSエラーを回避するために、CORSプロキシサービスを利用
+            // https://corsproxy.io/ は比較的安定しており、HTTPS to HTTPS に対応
+            const proxyUrlPrefix = 'https://corsproxy.io/?'; 
+            const apiUrl = proxyUrlPrefix + originalApiUrl;
+
+            // デバッグ用: 実際に使用されるAPI URL (プロキシ経由) をコンソールに出力
+            console.log('Using API URL (via proxy):', apiUrl);
+
+            // URLオブジェクトを使用してcdCat02 (品目コード) を抽出
+            let gasItemCodeFromUrl = '';
+            try {
+                const urlObj = new URL(originalApiUrl); // オリジナルのURLからパラメータを抽出
+                gasItemCodeFromUrl = urlObj.searchParams.get('cdCat02'); 
+                // デバッグ用: URLから抽出されたcdCat02の値をコンソールに出力
+                console.log('Extracted cdCat02 from original URL:', gasItemCodeFromUrl);
+
+                if (!gasItemCodeFromUrl) {
+                    apiStatusMessageElement.textContent = 'エラー: 指定されたオリジナルURLに`cdCat02`パラメータが見つかりません。ガソリンの品目コード（例: `cdCat02=07301`）が含まれている完全なURLを記述してください。';
+                    apiStatusMessageElement.style.color = '#ef4444';
+                    apiStatusMessageElement.classList.remove('hidden');
+                    return;
+                }
+            } catch (e) {
+                apiStatusMessageElement.textContent = `エラー: 不正なオリジナルURL形式です: ${e.message}。正しいe-Stat API URLを記述してください。`;
+                apiStatusMessageElement.style.color = '#ef4444';
+                apiStatusMessageElement.classList.remove('hidden');
+                return;
+            }
+
+            apiStatusMessageElement.classList.remove('hidden');
+            apiStatusMessageElement.textContent = '最新のガソリン価格を取得中...';
+            apiStatusMessageElement.style.color = '#3b82f6'; // Tailwindのblue-500
+
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTPエラー! ステータス: ${response.status} (${response.statusText})`);
+                }
+                // response.json() の前に response.text() を呼び出して生データを取得
+                const rawText = await response.text();
+                console.log('Raw API response text:', rawText); // 生データをコンソールに出力
+
+                let data;
+                try {
+                    // API応答がCSVのような形式であることを前提にパース
+                    data = parseEStatCustomFormat(rawText);
+                    console.log('Parsed E-Stat Custom Data:', data);
+                    // ここで、後続の処理のために期待するJSON構造にラップする
+                    data = {
+                        GET_STATS_DATA: {
+                            STATISTICAL_DATA: {
+                                DATA_INF: {
+                                    VALUE: data.VALUE // parseEStatCustomFormatからのVALUE配列を直接使用
+                                }
+                            }
+                        }
+                    };
+
+                } catch (parseError) {
+                    apiStatusMessageElement.textContent = `エラー: API応答のカスタムパースに失敗しました: ${parseError.message}。生データをコンソールで確認してください。`;
+                    apiStatusMessageElement.style.color = '#ef4444';
+                    console.error('Custom parsing error:', parseError);
+                    return;
+                }
+
+                // !!! デバッグ用: APIからのパース済み応答データをコンソールに出力 !!!
+                console.log('Parsed API response data (simulated JSON):', data);
+
+
+                // 段階的にデータ構造をチェックし、具体的なエラーメッセージを表示
+                if (!data || !data.GET_STATS_DATA || !data.GET_STATS_DATA.STATISTICAL_DATA || !data.GET_STATS_DATA.STATISTICAL_DATA.DATA_INF || !data.GET_STATS_DATA.STATISTICAL_DATA.DATA_INF.VALUE) {
+                    apiStatusMessageElement.textContent = 'エラー: API応答の構造が期待と異なります。手動で入力してください。';
+                    apiStatusMessageElement.style.color = '#ef4444';
+                    return;
+                }
+
+                const values = data.GET_STATS_DATA.STATISTICAL_DATA.DATA_INF.VALUE;
+                // デバッグ用: VALUE配列の内容をコンソールに出力
+                console.log('VALUE array:', values);
+
+                if (values.length === 0) {
+                    apiStatusMessageElement.textContent = 'エラー: 指定された条件のガソリン価格データがプロキシから返されませんでした。URLの年月、地域、品目コードを確認してください。';
+                    apiStatusMessageElement.style.color = '#ef4444';
+                    return;
+                }
+
+                let regularPrice = null; // 取得したレギュラーガソリン価格を格納する変数
+                let dataTimeCode = ''; // データの時間コードを保持する変数
+
+                // 提供されたAPI応答の形式に合わせてキーを修正
+                for (const item of values) {
+                    // 'cat02_code'（API応答の銘柄コード）とURLから取得したcdCat02、および単位が「円」であることを確認
+                    // デバッグ用: 各アイテムの内容をコンソールに出力
+                    console.log('Processing item:', item);
+                    if (item['cat02_code'] === gasItemCodeFromUrl && item['unit'] === '円') { 
+                        regularPrice = parseFloat(item['value']); 
+                        dataTimeCode = item['time_code']; 
+                        break; 
+                    }
+                }
+
+                if (regularPrice !== null) {
+                    document.getElementById('gasPriceRegular').value = regularPrice;
+
+                    const highOctanePrice = regularPrice + 10;
+                    const dieselPrice = regularPrice - 20;    
+
+                    document.getElementById('gasPriceHighOctane').value = highOctanePrice;
+                    document.getElementById('gasPriceDiesel').value = dieselPrice;
+
+                    // 'time_code' 形式 "YYYY00MMNN" から年月を抽出
+                    // 例: "2025000505" の場合、"2025年5月" を抽出
+                    const displayYear = dataTimeCode.substring(0, 4);
+                    // ここを修正: time_codeの月の位置が7番目（インデックス6）から始まるため
+                    const displayMonth = parseInt(dataTimeCode.substring(6, 8)); 
+
+                    apiStatusMessageElement.textContent = `ガソリン価格を更新しました (${displayYear}年${displayMonth}月データ)`;
+                    apiStatusMessageElement.style.color = '#10b981'; 
+                    
+                    calculateComparison();
+                } else {
+                    apiStatusMessageElement.textContent = 'エラー: 応答データ内にレギュラーガソリン価格が見つかりませんでした。URLの品目コード（`cdCat02`）または単位が正しいか確認してください。';
+                    apiStatusMessageElement.style.color = '#ef4444';
+                }
+
+            } catch (error) {
+                console.error('e-Stat APIの取得中にエラーが発生しました:', error);
+                apiStatusMessageElement.textContent = `ガソリン価格の取得中に予期せぬエラーが発生しました: ${error.message}。プロキシサービスまたはURLが正しい形式か確認してください。`;
+                apiStatusMessageElement.style.color = '#ef4444';
+            }
+        }
+
+        /**
+         * カスタムE-Stat API応答形式（CSVライク）をパースする関数
+         * @param {string} rawText - APIから返された生のテキストデータ
+         * @returns {object} パースされたデータオブジェクト（VALUE配列を含む）
+         */
+        function parseEStatCustomFormat(rawText) {
+            const lines = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+            let valueSectionStartIndex = -1;
+            for (let i = 0; i < lines.length; i++) {
+                if (lines[i] === '"VALUE"') {
+                    valueSectionStartIndex = i;
+                    break;
+                }
+            }
+
+            if (valueSectionStartIndex === -1 || lines.length <= valueSectionStartIndex + 2) {
+                throw new Error('データセクション「VALUE」が見つからないか、不完全です。');
+            }
+
+            // ヘッダー行とデータ行を抽出
+            const headerLine = lines[valueSectionStartIndex + 1];
+            const dataLines = lines.slice(valueSectionStartIndex + 2); // 複数のデータ行に対応するためsliceを使用
+
+            // CSVライクな行をパースするヘルパー関数
+            const parseCsvLine = (line) => {
+                const result = [];
+                let inQuote = false;
+                let currentField = '';
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        inQuote = !inQuote;
+                    } else if (char === ',' && !inQuote) {
+                        result.push(currentField);
+                        currentField = '';
+                    } else {
+                        currentField += char;
+                    }
+                }
+                result.push(currentField); // 最後のフィールドを追加
+                return result.map(field => field.trim()); // 各フィールドのトリム
+            };
+
+            const headers = parseCsvLine(headerLine);
+            const parsedDataArray = [];
+
+            // 各データ行をパース
+            for (const dataLine of dataLines) {
+                const values = parseCsvLine(dataLine);
+                if (headers.length !== values.length) {
+                    console.warn('警告: ヘッダーとデータフィールドの数が一致しない行があります。スキップします。', { headerLine, dataLine });
+                    continue;
+                }
+                const item = {};
+                for (let i = 0; i < headers.length; i++) {
+                    item[headers[i]] = values[i];
+                }
+                parsedDataArray.push(item);
+            }
+            
+            // 呼び出し元が期待する VALUE 構造に合わせる
+            return { VALUE: parsedDataArray };
+        }
+
+
+        /**
+         * 車の経済性比較を計算し、表示するメイン関数。
+         */
+        function calculateComparison() {
+            hideError(); // 以前のエラーメッセージを非表示にする
+
+            // 共通データ取得
+            const gasPriceRegular = getValidatedNumber('gasPriceRegular', 'レギュラーガソリン価格');
+            const gasPriceHighOctane = getValidatedNumber('gasPriceHighOctane', 'ハイオクガソリン価格');
+            const gasPriceDiesel = getValidatedNumber('gasPriceDiesel', 'ディーゼル燃料価格');
+            const monthlyDistance = getValidatedNumber('monthlyDistance', '一月の走行距離', true);
+
+            // いずれかの共通値が無効な場合は処理を中断
+            if (gasPriceRegular === null || gasPriceHighOctane === null || gasPriceDiesel === null || monthlyDistance === null) {
+                return;
+            }
+
+            // 車1のデータ取得
+            const carName1 = document.getElementById('carName1').value.trim() || '車1';
+            const fuelType1 = document.getElementById('fuelType1').value;
+            const price1 = getValidatedNumber('price1', `${carName1}の車両購入価格`);
+            const fuelEfficiency1 = getValidatedNumber('fuelEfficiency1', `${carName1}の燃費`);
+
+            // 車2のデータ取得
+            const carName2 = document.getElementById('carName2').value.trim() || '車2';
+            const fuelType2 = document.getElementById('fuelType2').value;
+            const price2 = getValidatedNumber('price2', `${carName2}の車両購入価格`);
+            const fuelEfficiency2 = getValidatedNumber('fuelEfficiency2', `${carName2}の燃費`);
+
+            // 車固有の値が無効な場合は処理を中断
+            if (price1 === null || fuelEfficiency1 === null || price2 === null || fuelEfficiency2 === null) {
+                return;
+            }
+
+            // 万を円に変換
+            const purchasePrice1 = price1 * 10000;
+            const purchasePrice2 = price2 * 10000;
+
+            // 各車の選択された燃料価格を取得
+            const selectedGasPrice1 = getFuelCostForType(fuelType1, gasPriceRegular, gasPriceHighOctane, gasPriceDiesel);
+            const selectedGasPrice2 = getFuelCostForType(fuelType2, gasPriceRegular, gasPriceHighOctane, gasPriceDiesel);
+
+            // 月間燃料費を計算
+            const monthlyFuelCost1 = (monthlyDistance / fuelEfficiency1) * selectedGasPrice1;
+            const monthlyFuelCost2 = (monthlyDistance / fuelEfficiency2) * selectedGasPrice2;
+
+            // 年間燃料費を計算
+            const yearlyFuelCost1 = monthlyFuelCost1 * 12;
+            const yearlyFuelCost2 = monthlyFuelCost2 * 12;
+
+            // 結果表示セクションを表示
+            document.getElementById('resultsSection').classList.remove('hidden');
+
+            // 数値結果の表示
+            let crossoverYears = null;
+            let crossoverResultText = '';
+
+            // 年間燃料費の差が非常に小さい場合は、交差しないとみなす
+            const EPSILON = 0.01; // 小さな誤差を許容する値
+            if (Math.abs(yearlyFuelCost1 - yearlyFuelCost2) < EPSILON) {
+                if (purchasePrice1 < purchasePrice2) {
+                    crossoverResultText = `${carName1}は常に${carName2}よりお得です。（年間燃料費がほぼ同じ）`;
+                } else if (purchasePrice2 < price1) {
+                    crossoverResultText = `${carName2}は常に${carName1}よりお得です。（年間燃料費がほぼ同じ）`;
+                } else {
+                    crossoverResultText = '両方の車の総費用は常に同じです。';
+                }
+            } else {
+                // 交差する年数を計算
+                // P1 + F1 * Y = P2 + F2 * Y
+                // Y * (F1 - F2) = P2 - P1
+                // Y = (P2 - P1) / (F1 - F2)
+                crossoverYears = (purchasePrice2 - purchasePrice1) / (yearlyFuelCost1 - yearlyFuelCost2);
+
+                if (crossoverYears > 0) {
+                    // 交差する日付を計算
+                    const totalDays = crossoverYears * 365.25; // 閏年を考慮
+                    const years = Math.floor(totalDays / 365.25);
+                    const remainingDays = totalDays % 365.25;
+                    const months = Math.floor(remainingDays / (365.25 / 12));
+                    const days = Math.round(remainingDays % (365.25 / 12));
+
+                    let betterCarInitial = '';
+                    if (purchasePrice1 < purchasePrice2) {
+                        betterCarInitial = `最初は${carName1}がお得ですが、`;
+                    } else {
+                        betterCarInitial = `最初は${carName2}がお得ですが、`;
+                    }
+
+                    crossoverResultText = `${betterCarInitial}約 <strong>${years}年 ${months}ヶ月 ${days}日後</strong> に経済的なお得さが入れ替わります。`;
+                } else {
+                    // 交差する年数が0以下の場合（最初から一方の車がお得）
+                    if (purchasePrice1 + yearlyFuelCost1 * 1 > price2 + yearlyFuelCost2 * 1) { // 1年後の比較
+                        crossoverResultText = `${carName2}は常に${carName1}よりお得です。`;
+                    } else {
+                        crossoverResultText = `${carName1}は常に${carName2}よりお得です。`;
+                    }
+                }
+            }
+            document.getElementById('crossoverResult').innerHTML = crossoverResultText;
+
+            // 詳細情報の表示
+            document.getElementById('car1Details').innerHTML = `<strong>${carName1}:</strong> 購入価格 ${price1}万円, 年間燃料費 ${(yearlyFuelCost1 / 10000).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}万円 (${fuelEfficiency1} Km/L, 燃料: ${document.getElementById('fuelType1').options[document.getElementById('fuelType1').selectedIndex].text})`;
+            document.getElementById('car2Details').innerHTML = `<strong>${carName2}:</strong> 購入価格 ${price2}万円, 年間燃料費 ${(yearlyFuelCost2 / 10000).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}万円 (${fuelEfficiency2} Km/L, 燃料: ${document.getElementById('fuelType2').options[document.getElementById('fuelType2').selectedIndex].text})`;
+
+
+            // グラフのデータ準備
+            const labels = [];
+            const dataCar1 = [];
+            const dataCar2 = [];
+            const maxYears = Math.max(crossoverYears !== null ? Math.round(crossoverYears) + 5 : 10, 10); // 交差点を考慮して最大年数を設定（最低10年）
+
+            for (let i = 0; i <= maxYears; i++) {
+                labels.push(`${i}年`);
+                // データを万円に変換してグラフに渡す
+                dataCar1.push((purchasePrice1 + yearlyFuelCost1 * i) / 10000);
+                dataCar2.push((purchasePrice2 + yearlyFuelCost2 * i) / 10000);
+            }
+
+            // 既存のChartインスタンスがあれば破棄
+            if (costChart) {
+                costChart.destroy();
+            }
+
+            // 新しいChartインスタンスを作成
+            const ctx = document.getElementById('costChart').getContext('2d');
+            costChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: `${carName1} 総費用 (万円)`, // ラベルも更新
+                            data: dataCar1,
+                            borderColor: 'rgb(75, 192, 192)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            tension: 0.1,
+                            fill: false,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: `${carName2} 総費用 (万円)`, // ラベルも更新
+                            data: dataCar2,
+                            borderColor: 'rgb(255, 99, 132)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            tension: 0.1,
+                            fill: false,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // コンテナのサイズに合わせて調整
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '経過年数と総費用',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            color: '#333'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        // ツールチップ表示も万円単位に
+                                        label += new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(context.parsed.y * 10000);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '年数',
+                                font: {
+                                    size: 16,
+                                    weight: 'bold'
+                                },
+                                color: '#555'
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12
+                                },
+                                color: '#666'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '費用 (万円)', // ここを万円に変更
+                                font: {
+                                    size: 16,
+                                    weight: 'bold'
+                                },
+                                color: '#555'
+                            },
+                            ticks: {
+                                callback: function(value, index, values) {
+                                    // グラフの目盛りを万円単位で表示
+                                    return value.toLocaleString('ja-JP') + '万円';
+                                },
+                                font: {
+                                    size: 12
+                                },
+                                color: '#666'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * グラフをPNG画像としてダウンロードする関数。
+         */
+        function downloadChart() {
+            const chartCanvas = document.getElementById('costChart');
+            if (chartCanvas) {
+                // キャンバスの内容をデータURLとして取得
+                const image = chartCanvas.toDataURL('image/png');
+
+                // ダウンロード用のリンク要素を作成
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = '車の経済性比較グラフ.png'; // ダウンロード時のファイル名
+
+                // リンクを一時的にDOMに追加してクリックし、すぐに削除
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                showError('ダウンロードするグラフがありません。まず比較を実行してください。');
+            }
+        }
+
+        // 初期ロード時に比較を一度実行
+        window.onload = function() {
+            calculateComparison();
+
+            // fetchGasPricesBtnボタンにイベントリスナーを追加
+            const fetchBtn = document.getElementById('fetchGasPricesBtn');
+            if (fetchBtn) {
+                fetchBtn.addEventListener('click', fetchGasPricesFromAPI);
+            } else {
+                console.error('Error: Button with ID "fetchGasPricesBtn" not found.');
+            }
+        };
+    </script>
+</body>
+</html>
