@@ -491,7 +491,7 @@
 
                     // 'time_code' 形式 "YYYY00MMNN" から年月を抽出
                     const displayYear = dataTimeCode.substring(0, 4);
-                    const displayMonth = parseInt(dataTimeCode.substring(6, 8)); // YYYY00MMNN形式からMMを抽出 (インデックス6から2文字)
+                    const displayMonth = parseInt(dataTimeCode.substring(6, 8)); // YYYY**MM**NN形式からMMを抽出 (インデックス6から2文字)
 
                     apiStatusMessageElement.textContent = `ガソリン価格を更新しました (${displayYear}年${displayMonth}月データ)`;
                     apiStatusMessageElement.style.color = '#10b981'; 
@@ -652,9 +652,9 @@
             const EPSILON = 0.01; // 小さな誤差を許容する値
             if (Math.abs(yearlyFuelCost1 - yearlyFuelCost2) < EPSILON) {
                 if (purchasePrice1 < purchasePrice2) {
-                    crossoverResultText = `${carName1}は常に${carName2}よりお得です。（年間燃料費がほぼ同じ）`;
-                } else if (purchasePrice2 < price1) {
-                    crossoverResultText = `${carName2}は常に${carName1}よりお得です。（年間燃料費がほぼ同じ）`;
+                    crossoverResultText = `${carName1} (購入価格 ${price1}万円) は常に${carName2} (購入価格 ${price2}万円) よりお得です。（年間燃料費がほぼ同じ）`;
+                } else if (purchasePrice2 < purchasePrice1) {
+                    crossoverResultText = `${carName2} (購入価格 ${price2}万円) は常に${carName1} (購入価格 ${price1}万円) よりお得です。（年間燃料費がほぼ同じ）`;
                 } else {
                     crossoverResultText = '両方の車の総費用は常に同じです。';
                 }
@@ -675,18 +675,18 @@
 
                     let betterCarInitial = '';
                     if (purchasePrice1 < purchasePrice2) {
-                        betterCarInitial = `最初は${carName1}がお得ですが、`;
+                        betterCarInitial = `最初は${carName1} (購入価格 ${price1}万円) がお得ですが、`;
                     } else {
-                        betterCarInitial = `最初は${carName2}がお得ですが、`;
+                        betterCarInitial = `最初は${carName2} (購入価格 ${price2}万円) がお得ですが、`;
                     }
 
                     crossoverResultText = `${betterCarInitial}約 <strong>${years}年 ${months}ヶ月 ${days}日後</strong> に経済的なお得さが入れ替わります。`;
                 } else {
                     // 交差する年数が0以下の場合（最初から一方の車がお得）
-                    if (purchasePrice1 + yearlyFuelCost1 * 1 > price2 + yearlyFuelCost2 * 1) { // 1年後の比較
-                        crossoverResultText = `${carName2}は常に${carName1}よりお得です。`;
+                    if (purchasePrice1 + yearlyFuelCost1 * 1 > purchasePrice2 + yearlyFuelCost2 * 1) { // 1年後の比較
+                        crossoverResultText = `${carName2} (購入価格 ${price2}万円) は常に${carName1} (購入価格 ${price1}万円) よりお得です。`;
                     } else {
-                        crossoverResultText = `${carName1}は常に${carName2}よりお得です。`;
+                        crossoverResultText = `${carName1} (購入価格 ${price1}万円) は常に${carName2} (購入価格 ${price2}万円) よりお得です。`;
                     }
                 }
             }
